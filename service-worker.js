@@ -1,6 +1,6 @@
-const CACHE='descanso-site-v4-jpg-gallery-only';
+const CACHE='descanso-site-v6-local-global-themes';
 const GALLERY=Array.from({length:48},(_,i)=>`./event-gallery/${i+6}.jpg`);
-const CORE=['./','./index.html','./styles.css','./app.js','./config.js','./themes.js','./manifest.webmanifest','./assets/icon.svg',...Array.from({length:50},(_,i)=>`./logos/${i+1}.png`),...GALLERY];
+const CORE=['./','./index.html','./styles.css','./app.js','./config.js','./themes.js','./manifest.webmanifest','./assets/icon.svg','./logos/0.png',...Array.from({length:50},(_,i)=>`./logos/${i+1}.png`),...GALLERY];
 self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const p of CORE){try{const r=await fetch(p);if(r.ok)await c.put(p,r)}catch{}}self.skipWaiting()})()));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith('descanso-')&&k!==CACHE)await caches.delete(k);await self.clients.claim()})()));
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==location.origin)return;if(r.mode==='navigate'){e.respondWith(fetch(r).then(res=>{if(res.ok)caches.open(CACHE).then(c=>c.put('./index.html',res.clone()));return res}).catch(()=>caches.match('./index.html').then(x=>x||new Response('Open this website online once to make it available offline.',{status:503}))));return}e.respondWith(caches.match(r).then(c=>c||fetch(r).then(res=>{if(res.ok)caches.open(CACHE).then(x=>x.put(r,res.clone()));return res}))) });

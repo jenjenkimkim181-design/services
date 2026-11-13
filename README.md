@@ -4,7 +4,7 @@ A separate, responsive website for presenting the cafe's event packages, buffet 
 
 ## Included
 - Home, event packages, buffet menu categories, event gallery, and venue information.
-- 50 coordinated themes with matching numbered header logo assets (`logos/1.png` through `logos/50.png`); selected theme is stored on the current device.
+- 51 themes: a new black-and-white default theme (theme 00) plus the original 50 coordinated themes. Themes 1–50 use `logos/1.png` through `logos/50.png`; theme 00 uses `logos/0.png`. The selected theme is stored on the current device.
 - Offline app shell using a service worker; open the website once while online before expecting offline access.
 - Local content cache and pending-change marker; the admin editor saves locally first and syncs after connection returns.
 - Supabase Auth admin sign-in and a single cloud content record.
@@ -27,12 +27,13 @@ The site is configured to use the new, separate Descanso Supabase project URL an
 - The SQL inserts one content row. The website does not create arbitrary cloud rows.
 
 ## Editing website content
-Open Admin → sign in → edit the JSON content → Save changes. Keep `packages` as an array and `menu` as an object of category names and item arrays. You can edit cafe wording, package inclusions/prices, menu categories/items, venue capacity, and gallery count. Keep valid JSON syntax.
+Open Admin → sign in → edit the fields → Save website changes. You can edit cafe wording, package inclusions/prices, menu categories, individual food names, and upload or replace a photo for each food item. Food photos are resized and compressed in the browser, saved with the website content, and reused automatically in both the buffet list and its adjacent carousel. No HTML or JavaScript editing is needed for routine menu updates.
 
 ## Photo placeholders
 `event-gallery/` public gallery uses only the cafe's JPG photos, `6.jpg`–`53.jpg`. The MOV files (`1.MOV`–`5.MOV`) and HEIC files (`54.HEIC`–`78.HEIC`) are intentionally not linked or cached by the website. The gallery has no event-number captions because all photos belong to one event. Replace the empty JPG placeholders with the cafe's actual photos using the exact same filenames.
 
 ## Notes / limitations
+- Food images are compressed to JPEG before being saved inside the site content. A large number of high-resolution food images can increase local storage use and the size of the shared Supabase content record; use reasonably sized source photos and test cloud sync after adding several images.
 - Offline access requires a secure HTTPS host (or localhost) and one successful online visit to install/cache the app shell.
 - The Supabase JavaScript client and Google Fonts are loaded from their CDNs. The main website layout and saved local content remain available offline after first use, but cloud sign-in/sync and external fonts require internet.
 - This starter sync uses one shared content record. Avoid editing the same content simultaneously on multiple devices; the latest successful save wins.

@@ -23,3 +23,18 @@ with check (auth.uid() = owner_id);
 insert into public.descanso_site (id, owner_id, content)
 values (1, 'ADMIN_USER_UUID'::uuid, '{}'::jsonb)
 on conflict (id) do nothing;
+
+
+-- Enable live notification when the administrator publishes a new official theme.
+-- Run once in the Supabase SQL Editor if the table is not already in this publication.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'descanso_site'
+  ) then
+    alter publication supabase_realtime add table public.descanso_site;
+  end if;
+end $$;
