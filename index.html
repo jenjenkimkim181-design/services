@@ -1,26 +1,12 @@
-
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-
-<meta property="og:type" content="website">
-<meta property="og:title" content="Descanso Comida + Cafe | Events & Catering">
-<meta property="og:description" content="Explore events, venue packages and catering from Descanso Comida + Cafe.">
-<meta property="og:url" content="https://digitized-droid.github.io/services/">
-
-<title>Descanso Comida + Cafe | Events & Catering</title>
-
-
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css">
-
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f1e8"><meta name="description" content="Explore events, venue packages and catering from Descanso Comida • Cafe.">
+<title>Descanso Comida • Cafe | Events & Catering</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="config.js" defer></script>
-<script src="themes.js" defer></script>
-<script src="app.js" defer></script>
-
+<script src="config.js" defer></script><script src="themes.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
 <div class="announcement">A beautiful space for the moments that matter.</div>
@@ -44,13 +30,22 @@
 </main>
 <footer><a class="brand footer-brand" href="#home"><span class="brand-mark"><img id="footerLogo" src="logos/0.png" alt="Descanso logo"></span><span><b>descanso</b><small>COMIDA • CAFE</small></span></a><span>Good food. Good company. Beautiful moments.</span><a href="#home">Back to top ↑</a></footer>
 <div class="toast" id="toast" role="status"></div>
+<div class="dish-description-backdrop" id="dishDescriptionModal" hidden><section class="dish-description-card" role="dialog" aria-modal="true" aria-labelledby="dishDescriptionTitle"><button class="dish-description-close" id="dishDescriptionClose" type="button" aria-label="Close description">×</button><span class="eyebrow">A CLOSER LOOK</span><h2 id="dishDescriptionTitle">Dish name</h2><p class="dish-description-text" id="dishDescriptionText">A description for this dish has not been added yet.</p></section></div>
 <div class="sync-pill" id="syncStatus"><span class="dot"></span><span>Offline-ready</span></div>
 <div class="modal-backdrop" id="themeModal" hidden><section class="admin-modal theme-modal" role="dialog" aria-modal="true" aria-labelledby="themeTitle"><button class="modal-close" id="themeClose" aria-label="Close">×</button><span class="eyebrow">PERSONALIZE YOUR EXPERIENCE</span><h2 id="themeTitle">Theme <em>settings</em></h2><p class="muted">Choose the new Black & White default theme or any of the 50 coordinated palettes. Your selection is saved only on this device. The administrator can publish an official theme for all visitors.</p><label for="themeSelect">Choose a theme</label><select id="themeSelect" class="theme-select"></select><div class="theme-preview" id="themePreview"><div class="theme-swatches" id="themeSwatches"></div><div><strong id="themeName">Original</strong><small id="themeCollection">Original collection</small></div><span id="themeNumber">01 / 50</span></div><div class="editor-actions"><button class="button button-outline" id="resetTheme">Reset theme</button><button class="button button-dark" id="applyTheme">Apply theme</button></div><button class="button button-outline full" id="publishGlobalTheme" type="button" hidden>Publish as official website theme (Admin only)</button></section></div>
-<div class="modal-backdrop" id="adminModal" hidden><section class="admin-modal"><button class="modal-close" id="adminClose" aria-label="Close">×</button><div id="loginView"><span class="eyebrow">SITE MANAGEMENT</span><h2>Admin <em>sign in</em></h2><p class="muted">Sign in with the administrator account created in your Supabase project.</p><label>Email<input id="adminEmail" type="email" autocomplete="username" placeholder="admin@example.com"></label><label>Password<input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your password"></label><button class="button button-dark full" id="loginButton">Sign in</button><p class="form-hint" id="loginMessage"></p></div>
-<div id="editorView" hidden><span class="eyebrow">YOUR WEBSITE</span><h2>Manage <em>content</em></h2><p class="muted">Make changes using the simple fields below. No code or technical knowledge needed. Your updates are saved on this device and synced to your website when online.</p>
-<div class="admin-help"><strong>What would you like to update?</strong><p>Change your cafe introduction, event packages, and menu items. The preview on your public website updates after you save.</p></div>
-<div class="admin-section"><h3>Website introduction</h3><p class="muted">The name and short message visitors see first.</p><label>Cafe name<input id="editCafeName" type="text"></label><label>Welcome message<textarea id="editIntro" rows="3"></textarea></label><label>Venue capacity (guests)<input id="editCapacity" type="number" min="1"></label></div>
-<div class="admin-section"><div class="admin-section-heading"><div><h3>Event packages</h3><p class="muted">Update prices, descriptions, and what each package includes.</p></div><button class="button button-outline" id="addPackage" type="button">+ Add package</button></div><div id="packageEditor"></div></div>
-<div class="admin-section"><div class="admin-section-heading"><div><h3>Food and drinks menu</h3><p class="muted">Add menu items and upload a photo for each dish. Images automatically appear in the menu and photo carousel.</p></div><button class="button button-outline" id="addCategory" type="button">+ Add category</button></div><div id="menuEditor"></div></div>
-<div class="editor-actions"><button class="button button-outline" id="reloadContent" type="button">Discard edits</button><button class="button button-dark" id="saveContent" type="button">Save website changes</button></div><div class="admin-bottom"><span id="adminUser"></span><button class="text-link" id="logoutButton">Sign out</button></div><p class="form-hint" id="saveMessage" role="status"></p></div></section></div>
+<div class="modal-backdrop" id="adminModal" hidden><section class="admin-modal"><button class="modal-close" id="adminClose" aria-label="Close">×</button><div id="loginView"><div id="loginFormView"><span class="eyebrow">SITE MANAGEMENT</span><h2>Admin <em>sign in</em></h2><p class="muted">Sign in with the administrator account created in your Supabase project.</p><label>Email<input id="adminEmail" type="email" autocomplete="username" placeholder="admin@example.com"></label><label>Password<input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your password"></label><button class="button button-dark full" id="loginButton">Sign in</button><button class="text-link forgot-password-link" id="forgotPasswordButton" type="button">Forgot password?</button><p class="form-hint" id="loginMessage" role="status"></p></div><div id="forgotPasswordView" hidden><span class="eyebrow">ACCOUNT RECOVERY</span><h2>Reset your <em>password</em></h2><p class="muted">We’ll send a secure password-reset link to the administrator email address below.</p><label>Email<input id="recoveryEmail" type="email" autocomplete="email" placeholder="admin@example.com"></label><button class="button button-dark full" id="sendRecoveryButton" type="button">Send confirmation email</button><button class="text-link auth-back-link" id="backToLoginButton" type="button">Back to sign in</button><p class="form-hint" id="recoveryMessage" role="status"></p></div></div>
+<div id="editorView" class="admin-editor-view" hidden>
+ <div class="admin-editor-header"><span class="eyebrow">YOUR WEBSITE</span><h2>Manage <em>content</em></h2><p class="muted">Update your cafe details, event packages, and buffet menu in one organized place.</p></div>
+ <div class="admin-help"><strong>Welcome to your website settings</strong><p>Choose a section below, make your changes, then select <b>Save website changes</b> to publish them. Your edits are kept together until you save.</p></div>
+ <nav class="admin-section-nav" aria-label="Admin settings sections">
+  <button type="button" class="admin-nav-button active" data-admin-target="adminIntroSection"><span class="admin-nav-number">01</span><span>Website details</span></button>
+  <button type="button" class="admin-nav-button" data-admin-target="adminPackagesSection"><span class="admin-nav-number">02</span><span>Event packages</span></button>
+  <button type="button" class="admin-nav-button" data-admin-target="adminMenuSection"><span class="admin-nav-number">03</span><span>Food menu</span></button>
+ </nav>
+ <section class="admin-section" id="adminIntroSection"><div class="admin-section-heading"><div><span class="admin-step">SECTION 01</span><h3>Website details</h3><p class="muted">The cafe name, welcome message, and venue capacity visitors see on your website.</p></div></div><div class="admin-fields intro-admin-fields"><label>Cafe name<input id="editCafeName" type="text"></label><label>Venue capacity (guests)<input id="editCapacity" type="number" min="1"></label><label class="wide-field">Welcome message<textarea id="editIntro" rows="3"></textarea></label></div></section>
+ <section class="admin-section" id="adminPackagesSection"><div class="admin-section-heading"><div><span class="admin-step">SECTION 02</span><h3>Event packages</h3><p class="muted">Update package names, prices, descriptions, and inclusions.</p></div><button class="button button-outline" id="addPackage" type="button">+ Add package</button></div><div id="packageEditor"></div></section>
+ <section class="admin-section" id="adminMenuSection"><div class="admin-section-heading"><div><span class="admin-step">SECTION 03</span><h3>Food and drinks menu</h3><p class="muted">Organize dishes by category. Each food item has its own name, photo, and visitor-facing description.</p></div><button class="button button-outline" id="addCategory" type="button">+ Add category</button></div><div id="menuEditor"></div></section>
+ <div class="admin-save-area"><div class="editor-actions"><button class="button button-outline" id="reloadContent" type="button">Discard edits</button><button class="button button-dark" id="saveContent" type="button">Save website changes</button></div><p class="form-hint" id="saveMessage" role="status"></p></div>
+ <div class="admin-bottom"><span id="adminUser"></span><button class="text-link" id="logoutButton">Sign out</button></div>
+</div></section></div>
 </body></html>

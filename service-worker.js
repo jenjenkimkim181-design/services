@@ -1,4 +1,4 @@
-const CACHE='descanso-site-v6-local-global-themes';
+const CACHE='descanso-site-v9-admin-layout';
 const GALLERY=Array.from({length:48},(_,i)=>`./event-gallery/${i+6}.jpg`);
 const CORE=['./','./index.html','./styles.css','./app.js','./config.js','./themes.js','./manifest.webmanifest','./assets/icon.svg','./logos/0.png',...Array.from({length:50},(_,i)=>`./logos/${i+1}.png`),...GALLERY];
 self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);for(const p of CORE){try{const r=await fetch(p);if(r.ok)await c.put(p,r)}catch{}}self.skipWaiting()})()));
