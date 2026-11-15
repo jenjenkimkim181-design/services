@@ -110,6 +110,12 @@ function renderMenuCarousel(){
 function openDishDescription(name){
  const modal=$('dishDescriptionModal');if(!modal)return;
  $('dishDescriptionTitle').textContent=name;
+ const image=$('dishDescriptionImage');
+ const imageUrl=getMenuImage(activeCategory,name);
+ if(image){
+  if(imageUrl){image.src=imageUrl;image.alt=`${name} photo`;image.hidden=false;}
+  else{image.removeAttribute('src');image.hidden=true;}
+ }
  const description=getMenuDescription(activeCategory,name).trim();
  const descriptionText=$('dishDescriptionText');
  if(descriptionText){descriptionText.textContent=description||'A description for this dish has not been added yet.';descriptionText.classList.toggle('is-empty',!description)}
@@ -216,7 +222,7 @@ async function pullCloud(){
  }else status('Cloud ready · publish initial content after setup');
 }
 async function pushCloud(){
- if(!supa||!session){status('Please sign in to save changes to the cloud.',false);return false}
+ if(!supa||!session||!navigator.onLine){status('Saved on this device · waiting for connection',false);return false}
  const {error}=await supa.from('descanso_site').update({content,updated_at:new Date().toISOString()}).eq('id',1);
  if(error){status('Saved locally · cloud sync needs attention',false);console.error(error);return false}
  storageRemove(PENDING_KEY);status('All changes synced');toast('Changes saved and synced to cloud.');return true;
@@ -224,10 +230,11 @@ async function pushCloud(){
 const IMAGE_BUCKET='menu-images';
 async function uploadMenuImageBlob(blob,category,item){
  if(!supa||!session)throw new Error('Please sign in as the website administrator before uploading photos.');
+ if(!navigator.onLine)throw new Error('An internet connection is required to upload a photo directly to the cloud.');
  const safePart=value=>String(value||'item').normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48)||'item';
  const unique=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
  const path=`menu/${safePart(category)}/${safePart(item)}-${unique}.jpg`;
- const {data,error}=await withCloudTimeout(supa.storage.from(IMAGE_BUCKET).upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000',upsert:false}),'Photo upload',120000);
+ const {data,error}=await withCloudTimeout(supa.storage.from(IMAGE_BUCKET).upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000',upsert:false}),'Photo upload',60000);
  if(error)throw error;
  const {data:{publicUrl}}=supa.storage.from(IMAGE_BUCKET).getPublicUrl(data.path);
  return publicUrl;
@@ -247,7 +254,7 @@ async function migrateEmbeddedMenuImages(images){
 function renderAdminEditor(){
  $('editCafeName').value=content.cafeName||'';$('editIntro').value=content.intro||'';$('editCapacity').value=content.venueCapacity||100;
  $('packageEditor').innerHTML=(content.packages||[]).map((p,i)=>`<article class="admin-item package-edit-item" data-package="${i}"><div class="admin-item-heading"><div><span class="admin-item-kicker">EVENT PACKAGE ${String(i+1).padStart(2,'0')}</span><strong>${escapeHTML(p.name||`Package ${i+1}`)}</strong></div><button type="button" class="text-link remove-package" data-index="${i}">Remove package</button></div><div class="admin-fields"><label>Package name<input data-field="name" value="${escapeHTML(p.name)}"></label><label>Small heading<input data-field="tag" value="${escapeHTML(p.tag)}"></label><label>Price<input data-field="price" value="${escapeHTML(p.price)}"></label><label>Price details<input data-field="unit" value="${escapeHTML(p.unit)}" placeholder="e.g. per person"></label><label>Short description<textarea data-field="description" rows="2">${escapeHTML(p.description)}</textarea></label><label>Minimum booking<input data-field="minimum" value="${escapeHTML(p.minimum)}"></label><label>Venue capacity note<input data-field="capacity" value="${escapeHTML(p.capacity)}"></label><label class="wide-field">What’s included? <span class="field-note">Write one inclusion per line.</span><textarea data-field="inclusions" rows="5">${escapeHTML((p.inclusions||[]).join('\n'))}</textarea></label></div></article>`).join('');
- $('menuEditor').innerHTML=Object.entries(content.menu||{}).map(([cat,items],i)=>`<article class="admin-item menu-edit-item" data-original-category="${escapeHTML(cat)}"><div class="admin-item-heading menu-category-heading"><div><span class="admin-item-kicker">MENU CATEGORY ${String(i+1).padStart(2,'0')}</span><strong>${escapeHTML(cat)}</strong></div><button type="button" class="text-link remove-category" data-category="${escapeHTML(cat)}">Remove category</button></div><label class="category-name-field">Category name<input class="menu-category-name" value="${escapeHTML(cat)}"></label><div class="menu-item-editor-list">${(items||[]).map((raw,j)=>{const item=typeof raw==='string'?raw:(raw?.name||'');const description=content.menuDescriptions?.[cat]?.[item]??(raw&&typeof raw==='object'?raw.description:'')??'';const image=content.menuImages?.[cat]?.[item]||'';return `<article class="menu-item-editor" data-original-item="${escapeHTML(item)}"><div class="menu-food-heading"><strong>Dish ${j+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" value="${escapeHTML(item)}"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*,.heic,.heif" data-category="${escapeHTML(cat)}" data-item="${escapeHTML(item)}"><span class="field-note">${image?'Photo uploaded · choose a new file to replace it':'No photo uploaded yet · choose an image for this dish'}</span>${image?`<img class="admin-food-preview" src="${image}" alt="${escapeHTML(item)} preview">`:''}</label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers.">${escapeHTML(description)}</textarea></label></div></article>`}).join('')||'<p class="menu-empty-state">No food items in this category yet. Select “Add food item” to get started.</p>'}</div><button type="button" class="button button-outline add-menu-item">+ Add food item</button></article>`).join('');
+ $('menuEditor').innerHTML=Object.entries(content.menu||{}).map(([cat,items],i)=>`<article class="admin-item menu-edit-item" data-original-category="${escapeHTML(cat)}"><div class="admin-item-heading menu-category-heading"><div><span class="admin-item-kicker">MENU CATEGORY ${String(i+1).padStart(2,'0')}</span><strong>${escapeHTML(cat)}</strong></div><button type="button" class="text-link remove-category" data-category="${escapeHTML(cat)}">Remove category</button></div><label class="category-name-field">Category name<input class="menu-category-name" value="${escapeHTML(cat)}"></label><div class="menu-item-editor-list">${(items||[]).map((raw,j)=>{const item=typeof raw==='string'?raw:(raw?.name||'');const description=content.menuDescriptions?.[cat]?.[item]??(raw&&typeof raw==='object'?raw.description:'')??'';const image=content.menuImages?.[cat]?.[item]||'';return `<article class="menu-item-editor" data-original-item="${escapeHTML(item)}"><div class="menu-food-heading"><strong>Dish ${j+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" value="${escapeHTML(item)}"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*" data-category="${escapeHTML(cat)}" data-item="${escapeHTML(item)}"><span class="field-note">${image?'Photo uploaded · choose a new file to replace it':'No photo uploaded yet · choose an image for this dish'}</span>${image?`<img class="admin-food-preview" src="${image}" alt="${escapeHTML(item)} preview">`:''}</label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers.">${escapeHTML(description)}</textarea></label></div></article>`}).join('')||'<p class="menu-empty-state">No food items in this category yet. Select “Add food item” to get started.</p>'}</div><button type="button" class="button button-outline add-menu-item">+ Add food item</button></article>`).join('');
 }
 function showAuthPanel(id){['loginFormView','forgotPasswordView'].forEach(panel=>$(panel).hidden=panel!==id)}
 function updateAdminView(){
@@ -315,32 +322,22 @@ async function saveEditor(){
    await migrateEmbeddedMenuImages(next.menuImages);
   }
  }catch(error){console.error('Legacy photo migration failed:',error);$('saveMessage').textContent='A photo could not be moved to cloud storage: '+(error.message||'Please check the connection and try again.');return}
- // Cloud is the primary save destination. Device storage is only an optional
- // convenience cache and must never prevent a signed-in admin from saving.
  content=next;
+ const locallyCached=saveLocal();
  render();
- if(supa&&session){
+ if(navigator.onLine&&session){
   const synced=await pushCloud();
-  if(synced){
-   storageSet(STORAGE_KEY,JSON.stringify(content)); // best-effort cache only
-   storageRemove(PENDING_KEY);
-   $('saveMessage').textContent='Your changes were saved to Supabase Cloud Storage.';
-  }else{
-   const locallyCached=saveLocal();
-   $('saveMessage').textContent=locallyCached
-    ?'Cloud save did not complete. A temporary copy was kept on this device; please retry when connected.'
-    :'Cloud save did not complete, and this device could not keep an offline copy. Please check your connection and try Save again.';
-  }
+  $('saveMessage').textContent=synced?'Your changes were saved to the cloud.':'Cloud sync did not complete. Please check the connection and try again.';
+ }else if(locallyCached){
+  $('saveMessage').textContent='Your changes are saved on this device and will sync when online.';
+  status('Saved locally · will sync when online',false);
  }else{
-  const locallyCached=saveLocal();
-  $('saveMessage').textContent=locallyCached
-   ?'You are not connected to the cloud. A temporary copy was kept on this device; sign in and reconnect to publish it.'
-   :'Please sign in and connect to the internet. This device has no space for an offline copy, so the changes were not saved.';
-  status(locallyCached?'Saved locally · waiting for cloud sign-in':'Cloud sign-in required · device cache unavailable',false);
+  $('saveMessage').textContent='This browser has no space for an offline copy. Connect to the internet and sign in so changes can be saved directly to the cloud.';
+  status('Local cache full · cloud sync required',false);
  }
 }
 function renumberMenuItems(card){[...card.querySelectorAll('.menu-item-editor')].forEach((row,index)=>{const heading=row.querySelector('.menu-food-heading strong');if(heading)heading.textContent=`Dish ${index+1}`})}
-function addFoodItem(card){const list=card.querySelector('.menu-item-editor-list');const row=document.createElement('article');row.className='menu-item-editor';row.innerHTML=`<div class="menu-food-heading"><strong>Dish ${list.querySelectorAll('.menu-item-editor').length+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" placeholder="Enter food name"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*,.heic,.heif"><span class="field-note">No photo uploaded yet · choose an image for this dish</span></label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers."></textarea></label></div>`;list.appendChild(row);renumberMenuItems(card)}
+function addFoodItem(card){const list=card.querySelector('.menu-item-editor-list');const row=document.createElement('article');row.className='menu-item-editor';row.innerHTML=`<div class="menu-food-heading"><strong>Dish ${list.querySelectorAll('.menu-item-editor').length+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" placeholder="Enter food name"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*"><span class="field-note">No photo uploaded yet · choose an image for this dish</span></label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers."></textarea></label></div>`;list.appendChild(row);renumberMenuItems(card)}
 async function compressFoodImage(file){
  if(!file)throw new Error('Please choose an image file.');
  const fileName=(file.name||'').toLowerCase();
