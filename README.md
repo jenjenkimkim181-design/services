@@ -15,7 +15,7 @@ The site is configured to use the new, separate Descanso Supabase project URL an
 
 1. In the new Supabase project, open **Authentication → Users** and create the cafe administrator account. Disable public sign-ups in Auth settings if the website only needs one administrator.
 2. Copy the admin user's UUID.
-3. Open `supabase/setup.sql`, replace `ADMIN_USER_UUID` with that UUID (keep the single quotes), and run the SQL in Supabase SQL Editor.
+3. Open `supabase/setup.sql`, replace `ADMIN_USER_UUID` with that UUID (keep the single quotes), and run the entire SQL script in Supabase SQL Editor. This script creates both the website content table and the `menu-images` Storage bucket with owner-only photo write policies.
 4. Deploy the entire folder to a static host (GitHub Pages, Netlify, etc.) using HTTPS.
 5. Visit the deployed website while online. Use **Admin** to sign in. Save the initial content once to publish the default packages/menu to the cloud.
 6. In Supabase, open **Authentication → URL Configuration**. Set **Site URL** to the deployed website's base URL, and add the deployed page URL to **Redirect URLs** (the same origin and path used to open `index.html`). The website requests password-recovery redirects back to that page with `?admin-reset=1`; Supabase must allow the page URL. For local testing, also allow the local development URL you use (for example `http://localhost:5500/**`).
@@ -30,13 +30,13 @@ The site is configured to use the new, separate Descanso Supabase project URL an
 - The SQL inserts one content row. The website does not create arbitrary cloud rows.
 
 ## Editing website content
-Open Admin → sign in → Food and drinks menu. Each food item now has its own Food description field below the food name and photo controls. Enter the actual ingredients, flavor, or details, then select Save website changes. Visitors will see that description when they select the dish. You can also edit cafe wording, package inclusions/prices, menu categories, food names, and photos. Food photos are resized and compressed in the browser, saved with the website content, and reused automatically in both the buffet list and its adjacent carousel. No HTML or JavaScript editing is needed for routine menu updates.
+Open Admin → sign in → Food and drinks menu. Each food item now has its own Food description field below the food name and photo controls. Enter the actual ingredients, flavor, or details, then select Save website changes. Visitors will see that description when they select the dish. You can also edit cafe wording, package inclusions/prices, menu categories, food names, and photos. Food photos are resized and uploaded directly to the Supabase Storage `menu-images` bucket; only their cloud URLs are saved with the website content, and the images are reused automatically in both the buffet list and its adjacent carousel. No HTML or JavaScript editing is needed for routine menu updates.
 
 ## Photo placeholders
 `event-gallery/` public gallery uses only the cafe's JPG photos, `6.jpg`–`53.jpg`. The MOV files (`1.MOV`–`5.MOV`) and HEIC files (`54.HEIC`–`78.HEIC`) are intentionally not linked or cached by the website. The gallery has no event-number captions because all photos belong to one event. Replace the empty JPG placeholders with the cafe's actual photos using the exact same filenames.
 
 ## Notes / limitations
-- Food images are compressed to JPEG before being saved inside the site content. A large number of high-resolution food images can increase local storage use and the size of the shared Supabase content record; use reasonably sized source photos and test cloud sync after adding several images.
+- Menu photos are compressed to JPEG in memory and uploaded directly to Supabase Storage. The local cache and shared content row retain only their URLs, not the image bytes. Uploading requires an internet connection and an administrator session.
 - Offline access requires a secure HTTPS host (or localhost) and one successful online visit to install/cache the app shell.
 - The Supabase JavaScript client and Google Fonts are loaded from their CDNs. The main website layout and saved local content remain available offline after first use, but cloud sign-in/sync and external fonts require internet.
 - This starter sync uses one shared content record. Avoid editing the same content simultaneously on multiple devices; the latest successful save wins.
@@ -45,3 +45,7 @@ Open Admin → sign in → Food and drinks menu. Each food item now has its own 
 
 ## Theme and logo assets
 The 50 theme definitions are stored in `themes.js`. The numbered logo images are in `logos/`. Each theme selects the matching numbered header logo. Replace these logo files with Descanso-approved matching artwork if the current numbered assets are not the cafe brand artwork.
+
+
+## Direct cloud image uploads
+The updated editor compresses a selected menu photo in memory, uploads the JPEG directly to the public `menu-images` Supabase Storage bucket, and stores only the returned URL in the `descanso_site.content` JSON. It no longer writes new image data into localStorage or embeds image bytes in the content row. Existing embedded data-URL photos are migrated to Storage the next time the administrator saves the website. The `supabase/setup.sql` script creates the bucket and its policies together with the content table. If you previously ran an older setup script, run the updated full script once to add the missing bucket and apply the current policies.
