@@ -22,18 +22,7 @@ let content=readLocal();content.menuImages=content.menuImages||{};content.menuDe
 const $=id=>document.getElementById(id);
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function readLocal(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||clone(defaults)}catch{return clone(defaults)}}
-function saveLocal(){
- // Browser storage is only a lightweight cache. Never persist Base64 photos here:
- // iOS Safari has a comparatively small per-site quota. Real photos belong in Supabase Storage.
- const cached=clone(content);
- for(const category of Object.keys(cached.menuImages||{})){
-  for(const item of Object.keys(cached.menuImages[category]||{})){
-   if(/^data:image\\//i.test(cached.menuImages[category][item]||''))delete cached.menuImages[category][item];
-  }
- }
- localStorage.setItem(STORAGE_KEY,JSON.stringify(cached));
- localStorage.setItem(PENDING_KEY,'1');
-}
+function saveLocal(){localStorage.setItem(STORAGE_KEY,JSON.stringify(content));localStorage.setItem(PENDING_KEY,'1')}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 function status(msg,good=true){$('syncStatus').innerHTML=`<span class="dot" style="background:${good?'#78916c':'#c28b55'}"></span><span>${msg}</span>`}
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -204,11 +193,10 @@ async function pullCloud(){
  }else status('Cloud ready · publish initial content after setup');
 }
 async function pushCloud(){
- if(!supa||!session||!navigator.onLine){status('Waiting for an internet connection',false);return false}
+ if(!supa||!session||!navigator.onLine){status('Saved on this device · waiting for connection',false);return}
  const {error}=await supa.from('descanso_site').update({content,updated_at:new Date().toISOString()}).eq('id',1);
- if(error){status('Cloud sync needs attention',false);console.error(error);return false}
+ if(error){status('Saved locally · cloud sync needs attention',false);console.error(error);return}
  localStorage.removeItem(PENDING_KEY);status('All changes synced');toast('Changes saved and synced to cloud.');
- return true;
 }
 function renderAdminEditor(){
  $('editCafeName').value=content.cafeName||'';$('editIntro').value=content.intro||'';$('editCapacity').value=content.venueCapacity||100;
@@ -270,56 +258,15 @@ function collectAdminEditor(){
  packages.forEach(p=>{if(/venue capacity/i.test(p.capacity||''))p.capacity=`Venue capacity: ${venueCapacity} guests`});
  return {...clone(content),cafeName:$('editCafeName').value.trim()||defaults.cafeName,intro:$('editIntro').value.trim(),venueCapacity,packages,menu,menuImages,menuDescriptions};
 }
-async function uploadEmbeddedMenuImages(target){
- if(!supa||!session||!navigator.onLine)throw new Error('Please connect to the internet and sign in as an administrator before publishing new photos.');
- const bucket='menu-images';
- for(const category of Object.keys(target.menuImages||{})){
-  for(const item of Object.keys(target.menuImages[category]||{})){
-   const value=target.menuImages[category][item];
-   if(!/^data:image\\//i.test(value||''))continue;
-   const response=await fetch(value);
-   const blob=await response.blob();
-   const safeName=(item||'food').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)||'food';
-   const path=`${safeName}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
-   const {error}=await supa.storage.from(bucket).upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000',upsert:false});
-   if(error)throw new Error(`Could not upload "${item}" to Supabase Storage: ${error.message}. Check that the "${bucket}" bucket exists and its upload policy is configured.`);
-   const {data}=supa.storage.from(bucket).getPublicUrl(path);
-   if(!data?.publicUrl)throw new Error(`The photo "${item}" uploaded, but its public URL could not be created.`);
-   target.menuImages[category][item]=data.publicUrl;
-  }
- }
-}
 async function saveEditor(){
  const next=collectAdminEditor();
  if(!next.packages.length){$('saveMessage').textContent='Please keep at least one event package.';return}
  if(!Object.keys(next.menu).length){$('saveMessage').textContent='Please keep at least one menu category.';return}
  if(next.packages.some(p=>!p.name||!p.price)){$('saveMessage').textContent='Please add a name and price to every package.';return}
- const hasNewPhotos=Object.values(next.menuImages||{}).some(group=>Object.values(group||{}).some(value=>/^data:image\\//i.test(value||'')));
- try{
-  if(hasNewPhotos){
-   $('saveMessage').textContent='Uploading food photos directly to cloud storage…';
-   await uploadEmbeddedMenuImages(next);
-  }
-  content=next;
-  if(navigator.onLine&&session){
-   $('saveMessage').textContent='Saving website changes to the cloud…';
-   const synced=await pushCloud();
-   if(!synced)throw new Error('The photos were uploaded, but the website content could not be synchronized. Please check your Supabase database permissions and try saving again.');
-   saveLocal();
-   localStorage.removeItem(PENDING_KEY);
-   render();renderAdminEditor();
-   $('saveMessage').textContent='Your changes and photos are saved in Supabase. They are available across your devices.';
-  }else{
-   if(hasNewPhotos)throw new Error('New photos need an internet connection to upload to Supabase. Your new photos have not been published. Please reconnect and save again.');
-   saveLocal();
-   render();$('saveMessage').textContent='Your changes are saved on this device and will sync when you are online.';
-   status('Saved locally · will sync when online',false);
-  }
- }catch(error){
-  console.error('Website save failed:',error);
-  $('saveMessage').textContent=error.message||'Could not save your changes. Please try again.';
-  status('Cloud save needs attention',false);
- }
+ content=next;
+ try{saveLocal()}catch(error){console.error('Local save failed:',error);$('saveMessage').textContent='Your changes could not be saved on this device because its storage is full. Try using fewer or smaller photos.';status('Device storage full · changes not saved',false);return}
+ render();$('saveMessage').textContent='Your changes are saved on this device.';
+ if(navigator.onLine&&session)await pushCloud();else status('Saved locally · will sync when online',false);
 }
 function renumberMenuItems(card){[...card.querySelectorAll('.menu-item-editor')].forEach((row,index)=>{const heading=row.querySelector('.menu-food-heading strong');if(heading)heading.textContent=`Dish ${index+1}`})}
 function addFoodItem(card){const list=card.querySelector('.menu-item-editor-list');const row=document.createElement('article');row.className='menu-item-editor';row.innerHTML=`<div class="menu-food-heading"><strong>Dish ${list.querySelectorAll('.menu-item-editor').length+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" placeholder="Enter food name"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*"><span class="field-note">No photo uploaded yet · choose an image for this dish</span></label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers."></textarea></label></div>`;list.appendChild(row);renumberMenuItems(card)}
