@@ -263,12 +263,43 @@ async function saveEditor(){
  if(!next.packages.length){$('saveMessage').textContent='Please keep at least one event package.';return}
  if(!Object.keys(next.menu).length){$('saveMessage').textContent='Please keep at least one menu category.';return}
  if(next.packages.some(p=>!p.name||!p.price)){$('saveMessage').textContent='Please add a name and price to every package.';return}
- content=next;saveLocal();render();$('saveMessage').textContent='Your changes are saved on this device.';
+ content=next;
+ try{saveLocal()}catch(error){console.error('Local save failed:',error);$('saveMessage').textContent='Your changes could not be saved on this device because its storage is full. Try using fewer or smaller photos.';status('Device storage full · changes not saved',false);return}
+ render();$('saveMessage').textContent='Your changes are saved on this device.';
  if(navigator.onLine&&session)await pushCloud();else status('Saved locally · will sync when online',false);
 }
 function renumberMenuItems(card){[...card.querySelectorAll('.menu-item-editor')].forEach((row,index)=>{const heading=row.querySelector('.menu-food-heading strong');if(heading)heading.textContent=`Dish ${index+1}`})}
 function addFoodItem(card){const list=card.querySelector('.menu-item-editor-list');const row=document.createElement('article');row.className='menu-item-editor';row.innerHTML=`<div class="menu-food-heading"><strong>Dish ${list.querySelectorAll('.menu-item-editor').length+1}</strong><button type="button" class="text-link remove-menu-item">Remove food</button></div><div class="menu-food-fields"><label class="menu-food-name-field">Food name<input class="menu-item-name" placeholder="Enter food name"></label><label class="menu-food-photo-field">Food photo<input class="menu-item-image" type="file" accept="image/*"><span class="field-note">No photo uploaded yet · choose an image for this dish</span></label><label class="menu-item-description">Food description <span class="field-note">Write the actual ingredients, flavor, or details visitors should know.</span><textarea class="menu-item-description-input" rows="3" placeholder="Example: Tender pork simmered in a rich tomato sauce with potatoes, carrots, and bell peppers."></textarea></label></div>`;list.appendChild(row);renumberMenuItems(card)}
-function compressFoodImage(file){return new Promise((resolve,reject)=>{if(!file.type.startsWith('image/'))return reject(new Error('Please choose an image file.'));const reader=new FileReader();reader.onerror=()=>reject(new Error('Could not read this image.'));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(new Error('Invalid image file.'));img.onload=()=>{const max=900,scale=Math.min(1,max/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',.76))};img.src=reader.result};reader.readAsDataURL(file)})}
+async function compressFoodImage(file){
+ if(!file)throw new Error('Please choose an image file.');
+ const fileName=(file.name||'').toLowerCase();
+ const looksLikeImage=(file.type||'').startsWith('image/')||/\\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(fileName);
+ if(!looksLikeImage)throw new Error('Please choose an image file (JPG, PNG, or WebP).');
+ if(file.size>20*1024*1024)throw new Error('This photo is larger than 20 MB. Please choose a smaller photo.');
+ let bitmap=null,source=null,objectUrl='';
+ try{
+  if('createImageBitmap'in window){try{bitmap=await createImageBitmap(file,{imageOrientation:'from-image'});source=bitmap}catch(error){console.warn('ImageBitmap decode unavailable; trying browser image decoder.',error)}}
+  if(!source){
+   objectUrl=URL.createObjectURL(file);
+   source=await new Promise((resolve,reject)=>{
+    const img=new Image();img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error(/\\.(heic|heif)$/i.test(fileName)||/heic|heif/i.test(file.type||'')
+     ?'This phone selected a HEIC/HEIF photo that this browser cannot read. Please choose JPG/JPEG instead, or change your camera format to Most Compatible.'
+     :'The selected photo could not be opened. Please try another JPG, PNG, or WebP image.'));
+    img.src=objectUrl;
+   });
+  }
+  const max=800,scale=Math.min(1,max/Math.max(source.width,source.height));
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(source.width*scale));canvas.height=Math.max(1,Math.round(source.height*scale));
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Your browser could not prepare this photo. Please try again.');
+  ctx.drawImage(source,0,0,canvas.width,canvas.height);
+  const blob=await new Promise((resolve,reject)=>{
+   if(canvas.toBlob)canvas.toBlob(result=>result?resolve(result):reject(new Error('Could not compress this photo. Please try another image.')),'image/jpeg',.70);
+   else{try{const data=canvas.toDataURL('image/jpeg',.70),bytes=atob(data.split(',')[1]),array=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);resolve(new Blob([array],{type:'image/jpeg'}))}catch(error){reject(error)}}
+  });
+  return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not finish preparing this photo. Please try again.'));reader.readAsDataURL(blob)});
+ }finally{if(bitmap)bitmap.close();if(objectUrl)URL.revokeObjectURL(objectUrl)}
+}
 function addPackage(){content.packages.push({name:'New package',tag:'',price:'',unit:'',minimum:'',capacity:`Venue capacity: ${content.venueCapacity||100} guests`,description:'',inclusions:[]});renderAdminEditor()}
 function addCategory(){let n=1,name='New category';while(content.menu[name])name=`New category ${++n}`;content.menu[name]=[];renderAdminEditor()}
 
@@ -289,7 +320,23 @@ $('reloadContent').addEventListener('click',()=>{content=readLocal();activeCateg
 $('addPackage').addEventListener('click',addPackage);$('addCategory').addEventListener('click',addCategory);
 $('packageEditor').addEventListener('click',e=>{const b=e.target.closest('.remove-package');if(!b)return;content.packages.splice(Number(b.dataset.index),1);renderAdminEditor()});
 $('menuEditor').addEventListener('click',e=>{const add=e.target.closest('.add-menu-item');if(add){addFoodItem(add.closest('.menu-edit-item'));return}const removeFood=e.target.closest('.remove-menu-item');if(removeFood){const categoryCard=removeFood.closest('.menu-edit-item');removeFood.closest('.menu-item-editor').remove();renumberMenuItems(categoryCard);return}const b=e.target.closest('.remove-category');if(!b)return;delete content.menu[b.dataset.category];if(content.menuImages)delete content.menuImages[b.dataset.category];renderAdminEditor()});
-$('menuEditor').addEventListener('change',async e=>{const input=e.target.closest('.menu-item-image');if(!input||!input.files?.[0])return;const row=input.closest('.menu-item-editor');const card=input.closest('.menu-edit-item');const oldCategory=input.dataset.category||card.dataset.originalCategory;const oldItem=input.dataset.item||row.querySelector('.menu-item-name').value.trim();try{input.disabled=true;const data=await compressFoodImage(input.files[0]);const category=card.querySelector('.menu-category-name').value.trim()||oldCategory;const item=row.querySelector('.menu-item-name').value.trim()||oldItem;content.menuImages=content.menuImages||{};content.menuImages[category]=content.menuImages[category]||{};if(item)content.menuImages[category][item]=data;input.dataset.category=category;input.dataset.item=item;input.dataset.uploadedImage=data;row.querySelector('.field-note').textContent='Photo uploaded · choose a new file to replace it';let preview=row.querySelector('.admin-food-preview');if(!preview){preview=document.createElement('img');preview.className='admin-food-preview';preview.alt=item+' preview';input.parentElement.appendChild(preview)}preview.src=data;$('saveMessage').textContent='Food photo added. Select Save website changes to publish it.'}catch(err){$('saveMessage').textContent=err.message||'Could not upload this image.'}finally{input.disabled=false}});
+$('menuEditor').addEventListener('change',async e=>{
+ const input=e.target.closest('.menu-item-image');if(!input||!input.files?.[0])return;
+ const file=input.files[0],row=input.closest('.menu-item-editor'),card=input.closest('.menu-edit-item');
+ const oldCategory=input.dataset.category||card.dataset.originalCategory,oldItem=input.dataset.item||row.querySelector('.menu-item-name').value.trim(),note=input.parentElement.querySelector('.field-note');
+ try{
+  input.disabled=true;$('saveMessage').textContent='Preparing photo…';if(note)note.textContent='Preparing photo for upload…';
+  const data=await compressFoodImage(file),category=card.querySelector('.menu-category-name').value.trim()||oldCategory,item=row.querySelector('.menu-item-name').value.trim()||oldItem;
+  content.menuImages=content.menuImages||{};content.menuImages[category]=content.menuImages[category]||{};if(item)content.menuImages[category][item]=data;
+  input.dataset.category=category;input.dataset.item=item;input.dataset.uploadedImage=data;
+  if(note)note.textContent='Photo ready · select Save website changes to publish it';
+  let preview=row.querySelector('.admin-food-preview');if(!preview){preview=document.createElement('img');preview.className='admin-food-preview';preview.alt=item+' preview';input.parentElement.appendChild(preview)}
+  preview.src=data;$('saveMessage').textContent='Photo prepared successfully. Select Save website changes to publish it.';
+ }catch(err){
+  console.error('Food photo upload failed:',err);if(note)note.textContent='Photo not added · choose another image';
+  $('saveMessage').textContent=err.message||'Could not prepare this image. Please try a JPG or PNG photo.';input.value='';
+ }finally{input.disabled=false}
+});
 $('logoutButton').addEventListener('click',async()=>{if(supa)await supa.auth.signOut();session=null;updateAdminView()});
 $('loadMore').addEventListener('click',()=>{galleryShown=Math.min(galleryShown+12,GALLERY_PHOTOS.length);renderGallery()});
 window.addEventListener('online',async()=>{status('Back online');if(session&&localStorage.getItem(PENDING_KEY)==='1')await pushCloud();else await pullCloud()});
